@@ -1,0 +1,15 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<insts>
+  <server>
+    <local ip="0.0.0.0" port="1993" conns="4" />
+    <remote ip="127.0.0.1" port="1080" />
+  </server>
+
+  <client>
+    <bind ip="0.0.0.0" port="1081" />
+    <link localip="0.0.0.0" localport="0" remoteip="127.0.0.1" remoteport="1993" />
+    <link localip="0.0.0.0" localport="0" remoteip="127.0.0.1" remoteport="1993" />
+    <link localip="0.0.0.0" localport="0" remoteip="127.0.0.1" remoteport="1993" />
+    <link localip="0.0.0.0" localport="0" remoteip="127.0.0.1" remoteport="1993" />
+  </client>
+</insts>
