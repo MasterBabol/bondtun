@@ -39,9 +39,7 @@ namespace Bondtun
 
                 IPEndPoint newLocalEP = new IPEndPoint(localip, localport);
 
-                IPAddress remoteip;
-                if (!IPAddress.TryParse(link.GetAttribute("remoteip"), out remoteip))
-                    ip = new IPAddress(0);
+                IPAddress remoteip = Dns.GetHostAddresses(link.GetAttribute("remotehost"))[0];
                 Int32 remoteport = Int32.Parse(link.GetAttribute("remoteport"));
 
                 IPEndPoint newRemoteEP = new IPEndPoint(remoteip, remoteport);

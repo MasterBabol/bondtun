@@ -34,8 +34,7 @@ namespace Bondtun
             m_listener.Start(m_maxConns);
 
             XmlElement remote = (XmlElement)fromXml.GetElementsByTagName("remote").Item(0);
-            IPAddress remoteIp;
-            IPAddress.TryParse(remote.GetAttribute("ip"), out remoteIp);
+            IPAddress remoteIp = Dns.GetHostAddresses(remote.GetAttribute("host"))[0];
             Int32 remotePort = Int32.Parse(remote.GetAttribute("port"));
             m_remoteEP = new IPEndPoint(remoteIp, remotePort);
         }
