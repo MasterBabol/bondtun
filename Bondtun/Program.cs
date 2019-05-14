@@ -15,8 +15,13 @@ namespace Bondtun
 #else
             String configFileName = "config.xml";
 #endif
+            Int32 bufferSize = 65536;
+
             if (args.Length >= 1)
                 configFileName = args[0];
+
+            if (args.Length >= 2)
+                Int32.TryParse(args[1], out bufferSize);
 
             try
             {
@@ -29,23 +34,19 @@ namespace Bondtun
                 configXml.Load(reader);
 
                 List<IInstance> insts = new List<IInstance>();
-                var configRoot = configXml.FirstChild;
+                var configRoot = (XmlElement)configXml.FirstChild;
                 if (configRoot.Name == "insts")
                 {
-                    foreach (XmlElement inst in configRoot.ChildNodes)
+                    foreach (XmlElement serverInst in configRoot.GetElementsByTagName("server"))
                     {
-                        if (inst.Name == "server")
-                        {
-                            var server = new BondServer(inst);
-                            insts.Add(server);
-                        }
-                        else if (inst.Name == "client")
-                        {
-                            var client = new BondClient(inst);
-                            insts.Add(client);
-                        }
-                        else
-                            throw new ArgumentException(String.Format("Unexpected instance role '{0}'.", inst.Name));
+                        var server = new BondServer(serverInst, bufferSize);
+                        insts.Add(server);
+                    }
+
+                    foreach (XmlElement clientInst in configRoot.GetElementsByTagName("client"))
+                    {
+                        var client = new BondClient(clientInst, bufferSize);
+                        insts.Add(client);
                     }
 
                     List<Task> instTasks = new List<Task>();

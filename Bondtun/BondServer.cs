@@ -17,8 +17,9 @@ namespace Bondtun
         private TcpClient m_remoteClient;
         private IPEndPoint m_remoteEP;
         private NetworkStream m_remoteStream;
+        private Int32 m_bufferSize;
 
-        public BondServer(XmlElement fromXml)
+        public BondServer(XmlElement fromXml, Int32 bufferSize)
         {
             XmlElement local = (XmlElement)fromXml.GetElementsByTagName("local").Item(0);
 
@@ -37,6 +38,8 @@ namespace Bondtun
             IPAddress remoteIp = Dns.GetHostAddresses(remote.GetAttribute("host"))[0];
             Int32 remotePort = Int32.Parse(remote.GetAttribute("port"));
             m_remoteEP = new IPEndPoint(remoteIp, remotePort);
+
+            m_bufferSize = bufferSize;
         }
 
         public void RunSync()
@@ -52,14 +55,14 @@ namespace Bondtun
                 {
                     TcpClient newClient;
                     newClient = await m_listener.AcceptTcpClientAsync();
-                    newClient.SendBufferSize = 65536;
-                    newClient.ReceiveBufferSize = 65536;
+                    newClient.SendBufferSize = m_bufferSize;
+                    newClient.ReceiveBufferSize = m_bufferSize;
                     m_netLinks.Add(newClient, newClient.GetStream());
                 }
 
                 m_remoteClient = new TcpClient();
-                m_remoteClient.SendBufferSize = 65536;
-                m_remoteClient.ReceiveBufferSize = 65536;
+                m_remoteClient.SendBufferSize = m_bufferSize;
+                m_remoteClient.ReceiveBufferSize = m_bufferSize;
                 await m_remoteClient.ConnectAsync(m_remoteEP.Address, m_remoteEP.Port);
                 m_remoteStream = m_remoteClient.GetStream();
 

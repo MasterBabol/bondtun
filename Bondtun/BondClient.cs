@@ -16,8 +16,9 @@ namespace Bondtun
         private TcpListener m_listener;
         private TcpClient m_serveClient;
         private NetworkStream m_serveStream;
+        private Int32 m_bufferSize;
 
-        public BondClient(XmlElement fromXml)
+        public BondClient(XmlElement fromXml, Int32 bufferSize)
         {
             XmlElement serve = (XmlElement)fromXml.GetElementsByTagName("bind").Item(0);
 
@@ -46,6 +47,8 @@ namespace Bondtun
 
                 m_linkInf.Add(new KeyValuePair<IPEndPoint, IPEndPoint>(newLocalEP, newRemoteEP));
             }
+
+            m_bufferSize = bufferSize;
         }
 
         public void RunSync()
@@ -58,16 +61,16 @@ namespace Bondtun
             try
             {
                 m_serveClient = await m_listener.AcceptTcpClientAsync();
-                m_serveClient.SendBufferSize = 65536;
-                m_serveClient.ReceiveBufferSize = 65536;
+                m_serveClient.SendBufferSize = m_bufferSize;
+                m_serveClient.ReceiveBufferSize = m_bufferSize;
                 m_serveStream = m_serveClient.GetStream();
 
                 foreach (var inf in m_linkInf)
                 {
                     TcpClient newClient = new TcpClient(inf.Key);
                     await newClient.ConnectAsync(inf.Value.Address, inf.Value.Port);
-                    newClient.SendBufferSize = 65536;
-                    newClient.ReceiveBufferSize = 65536;
+                    newClient.SendBufferSize = m_bufferSize;
+                    newClient.ReceiveBufferSize = m_bufferSize;
 
                     m_netLinks.Add(newClient, newClient.GetStream());
                 }
