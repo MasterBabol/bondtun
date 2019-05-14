@@ -50,7 +50,7 @@ namespace Bondtun
 
                     List<Task> instTasks = new List<Task>();
                     foreach (var inst in insts)
-                        instTasks.Add(inst.RunAsync());
+                        instTasks.Add(Task.Run(async () => { await inst.RunAsync(); }));
 
                     Task.WaitAll(instTasks.ToArray());
                 }

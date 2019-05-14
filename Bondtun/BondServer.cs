@@ -63,19 +63,46 @@ namespace Bondtun
                 await m_remoteClient.ConnectAsync(m_remoteEP.Address, m_remoteEP.Port);
                 m_remoteStream = m_remoteClient.GetStream();
 
-                while (true)
-                {
-                    foreach (var link in m_netLinks)
-                    {
-                        Byte[] payload = await ReceiveOne(link.Value);
-                        await m_remoteStream.WriteAsync(payload);
-                    }
-                }
+                var difr = Task.Run(async () => { await DispatchInboundFromRemote(); });
+                var dotr = Task.Run(async () => { await DispatchOutboundToRemote(); });
+                await Task.WhenAll(difr, dotr);
             }
             catch (Exception)
             {
                 foreach (var link in m_netLinks)
                     link.Key.Dispose();
+            }
+        }
+
+        private async Task DispatchInboundFromRemote()
+        {
+            while (m_remoteClient.Connected)
+            {
+                foreach (var link in m_netLinks)
+                {
+                    Byte[] buffer = new Byte[1400];
+                    Int32 readBytes = await m_remoteStream.ReadAsync(buffer);
+
+                    if (readBytes > 0)
+                    {
+                        await link.Value.WriteAsync(BitConverter.GetBytes(readBytes));
+                        await link.Value.WriteAsync(buffer, 0, (Int32)readBytes);
+                    }
+                    else
+                        throw new SocketException();
+                }
+            }
+        }
+
+        private async Task DispatchOutboundToRemote()
+        {
+            while (m_remoteClient.Connected)
+            {
+                foreach (var link in m_netLinks)
+                {
+                    Byte[] payload = await ReceiveOne(link.Value);
+                    await m_remoteStream.WriteAsync(payload);
+                }
             }
         }
 
