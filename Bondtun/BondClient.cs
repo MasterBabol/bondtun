@@ -72,9 +72,9 @@ namespace Bondtun
                     m_netLinks.Add(newClient, newClient.GetStream());
                 }
 
-                var difr = Task.Run(async () => { await DispatchInboundFromLink(); });
-                var dotr = Task.Run(async () => { await DispatchOutboundToLink(); });
-                await Task.WhenAll(difr, dotr);
+                var difl = Task.Run(async () => { await DispatchInboundFromLink(); });
+                var dotl = Task.Run(async () => { await DispatchOutboundToLink(); });
+                await Task.WhenAll(difl, dotl);
             }
             catch (Exception)
             {
@@ -85,34 +85,56 @@ namespace Bondtun
 
         private async Task DispatchInboundFromLink()
         {
-            while (m_serveClient.Connected)
+            try
             {
-                foreach (var link in m_netLinks)
+                while (m_serveClient.Connected)
                 {
-                    Byte[] payload = await ReceiveOne(link.Value);
-                    await m_serveStream.WriteAsync(payload);
+                    foreach (var link in m_netLinks)
+                    {
+                        Byte[] payload = await ReceiveOne(link.Value);
+                        await m_serveStream.WriteAsync(payload);
+                    }
                 }
+            }
+            catch (Exception)
+            {
+                DisposeAll();
             }
         }
 
         private async Task DispatchOutboundToLink()
         {
-            while (m_serveClient.Connected)
+            try
             {
-                foreach (var link in m_netLinks)
+                while (m_serveClient.Connected)
                 {
-                    Byte[] buffer = new Byte[1400];
-                    Int32 readBytes = await m_serveStream.ReadAsync(buffer);
-
-                    if (readBytes > 0)
+                    foreach (var link in m_netLinks)
                     {
-                        await link.Value.WriteAsync(BitConverter.GetBytes(readBytes));
-                        await link.Value.WriteAsync(buffer, 0, (Int32)readBytes);
+                        Byte[] buffer = new Byte[1400];
+                        Int32 readBytes = await m_serveStream.ReadAsync(buffer);
+
+                        if (readBytes > 0)
+                        {
+                            await link.Value.WriteAsync(BitConverter.GetBytes(readBytes));
+                            await link.Value.WriteAsync(buffer, 0, (Int32)readBytes);
+                        }
+                        else
+                            throw new SocketException();
                     }
-                    else
-                        throw new SocketException();
                 }
             }
+            catch (Exception)
+            {
+                DisposeAll();
+            }
+        }
+
+        private void DisposeAll()
+        {
+            foreach (var link in m_netLinks)
+                link.Key.Dispose();
+            m_serveClient.Dispose();
+            m_serveStream.Dispose();
         }
 
         private async Task ReceiveExact(Stream stream, Byte[] buffer)

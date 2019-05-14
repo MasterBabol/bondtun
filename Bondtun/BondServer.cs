@@ -76,34 +76,56 @@ namespace Bondtun
 
         private async Task DispatchInboundFromRemote()
         {
-            while (m_remoteClient.Connected)
+            try
             {
-                foreach (var link in m_netLinks)
+                while (m_remoteClient.Connected)
                 {
-                    Byte[] buffer = new Byte[1400];
-                    Int32 readBytes = await m_remoteStream.ReadAsync(buffer);
-
-                    if (readBytes > 0)
+                    foreach (var link in m_netLinks)
                     {
-                        await link.Value.WriteAsync(BitConverter.GetBytes(readBytes));
-                        await link.Value.WriteAsync(buffer, 0, (Int32)readBytes);
+                        Byte[] buffer = new Byte[1400];
+                        Int32 readBytes = await m_remoteStream.ReadAsync(buffer);
+
+                        if (readBytes > 0)
+                        {
+                            await link.Value.WriteAsync(BitConverter.GetBytes(readBytes));
+                            await link.Value.WriteAsync(buffer, 0, (Int32)readBytes);
+                        }
+                        else
+                            throw new SocketException();
                     }
-                    else
-                        throw new SocketException();
                 }
+            }
+            catch (Exception)
+            {
+                DisposeAll();
             }
         }
 
         private async Task DispatchOutboundToRemote()
         {
-            while (m_remoteClient.Connected)
+            try
             {
-                foreach (var link in m_netLinks)
+                while (m_remoteClient.Connected)
                 {
-                    Byte[] payload = await ReceiveOne(link.Value);
-                    await m_remoteStream.WriteAsync(payload);
+                    foreach (var link in m_netLinks)
+                    {
+                        Byte[] payload = await ReceiveOne(link.Value);
+                        await m_remoteStream.WriteAsync(payload);
+                    }
                 }
             }
+            catch (Exception)
+            {
+                DisposeAll();
+            }
+        }
+
+        private void DisposeAll()
+        {
+            foreach (var link in m_netLinks)
+                link.Key.Dispose();
+            m_remoteClient.Dispose();
+            m_remoteStream.Dispose();
         }
 
         private async Task ReceiveExact(Stream stream, Byte[] buffer)
