@@ -62,6 +62,8 @@ namespace Bondtun
             {
                 Console.WriteLine(e);
             }
+
+            Environment.ExitCode = -1;
         }
     }
 }
