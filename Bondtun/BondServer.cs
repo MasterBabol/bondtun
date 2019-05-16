@@ -85,7 +85,7 @@ namespace Bondtun
                 {
                     foreach (var link in m_netLinks)
                     {
-                        Byte[] buffer = new Byte[1400];
+                        Byte[] buffer = new Byte[65536];
                         Int32 readBytes = await m_remoteStream.ReadAsync(buffer);
 
                         if (readBytes > 0)
@@ -152,7 +152,7 @@ namespace Bondtun
 
             await ReceiveExact(stream, lengthRaw);
             UInt32 len = BitConverter.ToUInt32(lengthRaw);
-            if (len > 2000)
+            if (len > 65536)
                 throw new OutOfMemoryException();
 
             Byte[] payload = new Byte[len];
