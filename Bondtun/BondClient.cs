@@ -55,7 +55,7 @@ namespace Bondtun
 
             m_bufferSize = bufferSize;
 
-            m_serveOutboundQueue = new BlockingCollection<byte[]>(m_maxConns * 16);
+            m_serveOutboundQueue = new BlockingCollection<byte[]>(m_maxConns);
         }
 
         public void RunSync()
@@ -119,7 +119,7 @@ namespace Bondtun
             {
                 while (m_serveClient.Connected)
                 {
-                    Byte[] buffer = new Byte[60];
+                    Byte[] buffer = new Byte[1500 / m_maxConns];
                     Int32 readBytes = await m_serveStream.ReadAsync(buffer, 4, buffer.Length - 4);
 
                     if (readBytes > 0)

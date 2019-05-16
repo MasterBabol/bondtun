@@ -43,7 +43,7 @@ namespace Bondtun
 
             m_bufferSize = bufferSize;
 
-            m_remoteInboundQueue = new BlockingCollection<byte[]>(m_maxConns * 16);
+            m_remoteInboundQueue = new BlockingCollection<byte[]>(m_maxConns * 4);
         }
 
         public void RunSync()
@@ -87,7 +87,7 @@ namespace Bondtun
             {
                 while (m_remoteClient.Connected)
                 {
-                    Byte[] buffer = new Byte[60];
+                    Byte[] buffer = new Byte[1500 / m_maxConns];
                     Int32 readBytes = await m_remoteStream.ReadAsync(buffer, 4, buffer.Length - 4);
 
                     if (readBytes > 0)
