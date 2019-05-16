@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.Concurrent;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -12,14 +11,13 @@ namespace Bondtun
 {
     public class BondServer : IInstance
     {
-        private List<KeyValuePair<TcpClient, Stream>> m_netLinks = new List<KeyValuePair<TcpClient, Stream>>();
+        private Dictionary<TcpClient, Stream> m_netLinks = new Dictionary<TcpClient, Stream>();
         private TcpListener m_listener;
         private Int32 m_maxConns;
         private TcpClient m_remoteClient;
         private IPEndPoint m_remoteEP;
         private NetworkStream m_remoteStream;
         private Int32 m_bufferSize;
-        private BlockingCollection<Byte[]> m_remoteInboundQueue;
 
         public BondServer(XmlElement fromXml, Int32 bufferSize)
         {
@@ -42,8 +40,6 @@ namespace Bondtun
             m_remoteEP = new IPEndPoint(remoteIp, remotePort);
 
             m_bufferSize = bufferSize;
-
-            m_remoteInboundQueue = new BlockingCollection<byte[]>(m_maxConns * 4);
         }
 
         public void RunSync()
@@ -61,7 +57,7 @@ namespace Bondtun
                     newClient = await m_listener.AcceptTcpClientAsync();
                     newClient.SendBufferSize = m_bufferSize;
                     newClient.ReceiveBufferSize = m_bufferSize;
-                    m_netLinks.Add(new KeyValuePair<TcpClient, Stream>(newClient, newClient.GetStream()));
+                    m_netLinks.Add(newClient, newClient.GetStream());
                 }
 
                 m_remoteClient = new TcpClient();
@@ -70,10 +66,9 @@ namespace Bondtun
                 await m_remoteClient.ConnectAsync(m_remoteEP.Address, m_remoteEP.Port);
                 m_remoteStream = m_remoteClient.GetStream();
 
-                var difrr = Task.Run(async () => { await DispatchInboundFromRemoteRead(); });
-                var difrw = Task.Run(async () => { await DispatchInboundFromRemoteWrite(); });
+                var difr = Task.Run(async () => { await DispatchInboundFromRemote(); });
                 var dotr = Task.Run(async () => { await DispatchOutboundToRemote(); });
-                await Task.WhenAll(difrr, difrw, dotr);
+                await Task.WhenAll(difr, dotr);
             }
             catch (Exception)
             {
@@ -81,56 +76,25 @@ namespace Bondtun
             }
         }
 
-        private async Task DispatchInboundFromRemoteRead()
+        private async Task DispatchInboundFromRemote()
         {
             try
             {
                 while (m_remoteClient.Connected)
                 {
-                    Byte[] buffer = new Byte[1500 / m_maxConns];
-                    Int32 readBytes = await m_remoteStream.ReadAsync(buffer, 4, buffer.Length - 4);
-
-                    if (readBytes > 0)
+                    foreach (var link in m_netLinks)
                     {
-                        Array.Copy(BitConverter.GetBytes(readBytes), buffer, 4);
-                        Array.Resize(ref buffer, readBytes + 4);
-                        while (!m_remoteInboundQueue.TryAdd(buffer))
-                            await Task.Yield();
+                        Byte[] buffer = new Byte[1500 / m_maxConns];
+                        Int32 readBytes = await m_remoteStream.ReadAsync(buffer, 4, buffer.Length - 4);
+
+                        if (readBytes > 0)
+                        {
+                            Array.Copy(BitConverter.GetBytes(readBytes), buffer, 4);
+                            await link.Value.WriteAsync(buffer, 0, (Int32)readBytes + 4);
+                        }
+                        else
+                            throw new SocketException();
                     }
-                    else
-                        throw new SocketException();
-                }
-            }
-            catch (Exception)
-            {
-                DisposeAll();
-            }
-        }
-
-        private async Task DispatchInboundFromRemoteWrite()
-        {
-            try
-            {
-                Queue<KeyValuePair<TcpClient, Stream>> schedulingTargets = new Queue<KeyValuePair<TcpClient, Stream>>();
-
-                while (m_remoteClient.Connected)
-                {
-                    List<Task> writeTasks = new List<Task>();
-
-                    if (schedulingTargets.Count < m_maxConns)
-                        foreach (var link in m_netLinks)
-                            schedulingTargets.Enqueue(link);
-
-                    for (int i = 0; i < m_maxConns; i++)
-                    {
-                        Byte[] buffer;
-                        var link = schedulingTargets.Dequeue();
-
-                        if (m_remoteInboundQueue.TryTake(out buffer))
-                            writeTasks.Add(link.Value.WriteAsync(buffer, 0, buffer.Length));
-                    }
-
-                    await Task.WhenAll(writeTasks.ToArray());
                 }
             }
             catch (Exception)

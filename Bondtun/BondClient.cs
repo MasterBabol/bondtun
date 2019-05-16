@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.Concurrent;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -12,14 +11,13 @@ namespace Bondtun
 {
     public class BondClient : IInstance
     {
-        private List<KeyValuePair<TcpClient, Stream>> m_netLinks = new List<KeyValuePair<TcpClient, Stream>>();
+        private Dictionary<TcpClient, Stream> m_netLinks = new Dictionary<TcpClient, Stream>();
         private List<KeyValuePair<IPEndPoint, IPEndPoint>> m_linkInf = new List<KeyValuePair<IPEndPoint, IPEndPoint>>();
         private TcpListener m_listener;
         private Int32 m_maxConns;
         private TcpClient m_serveClient;
         private NetworkStream m_serveStream;
         private Int32 m_bufferSize;
-        private BlockingCollection<Byte[]> m_serveOutboundQueue;
 
         public BondClient(XmlElement fromXml, Int32 bufferSize)
         {
@@ -54,8 +52,6 @@ namespace Bondtun
             }
 
             m_bufferSize = bufferSize;
-
-            m_serveOutboundQueue = new BlockingCollection<byte[]>(m_maxConns);
         }
 
         public void RunSync()
@@ -80,13 +76,12 @@ namespace Bondtun
                     newClient.SendBufferSize = m_bufferSize;
                     newClient.ReceiveBufferSize = m_bufferSize;
 
-                    m_netLinks.Add(new KeyValuePair<TcpClient, Stream>(newClient, newClient.GetStream()));
+                    m_netLinks.Add(newClient, newClient.GetStream());
                 }
 
                 var difl = Task.Run(async () => { await DispatchInboundFromLink(); });
-                var dotlr = Task.Run(async () => { await DispatchOutboundToLinkRead(); });
-                var dotlw = Task.Run(async () => { await DispatchOutboundToLinkWrite(); });
-                await Task.WhenAll(difl, dotlr, dotlw);
+                var dotl = Task.Run(async () => { await DispatchOutboundToLink(); });
+                await Task.WhenAll(difl, dotl);
             }
             catch (Exception)
             {
@@ -113,56 +108,25 @@ namespace Bondtun
             }
         }
 
-        private async Task DispatchOutboundToLinkRead()
+        private async Task DispatchOutboundToLink()
         {
             try
             {
                 while (m_serveClient.Connected)
                 {
-                    Byte[] buffer = new Byte[1500 / m_maxConns];
-                    Int32 readBytes = await m_serveStream.ReadAsync(buffer, 4, buffer.Length - 4);
-
-                    if (readBytes > 0)
+                    foreach (var link in m_netLinks)
                     {
-                        Array.Copy(BitConverter.GetBytes(readBytes), buffer, 4);
-                        Array.Resize(ref buffer, readBytes + 4);
-                        while (!m_serveOutboundQueue.TryAdd(buffer))
-                            await Task.Yield();
+                        Byte[] buffer = new Byte[1500 / m_maxConns];
+                        Int32 readBytes = await m_serveStream.ReadAsync(buffer, 4, buffer.Length - 4);
+
+                        if (readBytes > 0)
+                        {
+                            Array.Copy(BitConverter.GetBytes(readBytes), buffer, 4);
+                            await link.Value.WriteAsync(buffer, 0, (Int32)readBytes + 4);
+                        }
+                        else
+                            throw new SocketException();
                     }
-                    else
-                        throw new SocketException();
-                }
-            }
-            catch (Exception)
-            {
-                DisposeAll();
-            }
-        }
-
-        private async Task DispatchOutboundToLinkWrite()
-        {
-            try
-            {
-                Queue<KeyValuePair<TcpClient, Stream>> schedulingTargets = new Queue<KeyValuePair<TcpClient, Stream>>();
-
-                while (m_serveClient.Connected)
-                {
-                    List<Task> writeTasks = new List<Task>();
-
-                    if (schedulingTargets.Count < m_maxConns)
-                        foreach (var link in m_netLinks)
-                            schedulingTargets.Enqueue(link);
-
-                    for (int i = 0; i < m_maxConns; i++)
-                    {
-                        Byte[] buffer;
-                        var link = schedulingTargets.Dequeue();
-
-                        if (m_serveOutboundQueue.TryTake(out buffer))
-                            writeTasks.Add(link.Value.WriteAsync(buffer, 0, buffer.Length));
-                    }
-
-                    await Task.WhenAll(writeTasks.ToArray());
                 }
             }
             catch (Exception)
