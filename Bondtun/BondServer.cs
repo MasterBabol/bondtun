@@ -85,7 +85,7 @@ namespace Bondtun
                 {
                     foreach (var link in m_netLinks)
                     {
-                        Byte[] buffer = new Byte[1024*1024];
+                        Byte[] buffer = new Byte[256];
                         Int32 readBytes = await m_remoteStream.ReadAsync(buffer);
 
                         if (readBytes > 0)
