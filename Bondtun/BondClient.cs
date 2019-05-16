@@ -160,8 +160,6 @@ namespace Bondtun
 
                         if (m_serveOutboundQueue.TryTake(out buffer))
                             writeTasks.Add(link.Value.WriteAsync(buffer, 0, buffer.Length));
-                        else
-                            await Task.Yield();
                     }
 
                     await Task.WhenAll(writeTasks.ToArray());
