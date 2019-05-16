@@ -68,6 +68,7 @@ namespace Bondtun
                 foreach (var inf in m_linkInf)
                 {
                     TcpClient newClient = new TcpClient(inf.Key);
+		    Console.WriteLine("A link from " + inf.Key + " is connecting to " + inf.Value);
                     await newClient.ConnectAsync(inf.Value.Address, inf.Value.Port);
                     newClient.SendBufferSize = m_bufferSize;
                     newClient.ReceiveBufferSize = m_bufferSize;
