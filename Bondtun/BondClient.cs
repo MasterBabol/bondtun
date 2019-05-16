@@ -14,6 +14,7 @@ namespace Bondtun
         private Dictionary<TcpClient, Stream> m_netLinks = new Dictionary<TcpClient, Stream>();
         private List<KeyValuePair<IPEndPoint, IPEndPoint>> m_linkInf = new List<KeyValuePair<IPEndPoint, IPEndPoint>>();
         private TcpListener m_listener;
+        private Int32 m_maxConns;
         private TcpClient m_serveClient;
         private NetworkStream m_serveStream;
         private Int32 m_bufferSize;
@@ -31,6 +32,7 @@ namespace Bondtun
             m_listener = new TcpListener(newEP);
             m_listener.Start(1);
 
+            m_maxConns = 0;
             foreach (XmlElement link in fromXml.GetElementsByTagName("link"))
             {
                 IPAddress localip;
@@ -46,6 +48,7 @@ namespace Bondtun
                 IPEndPoint newRemoteEP = new IPEndPoint(remoteip, remoteport);
 
                 m_linkInf.Add(new KeyValuePair<IPEndPoint, IPEndPoint>(newLocalEP, newRemoteEP));
+                m_maxConns++;
             }
 
             m_bufferSize = bufferSize;
@@ -82,8 +85,7 @@ namespace Bondtun
             }
             catch (Exception)
             {
-                foreach (var link in m_netLinks)
-                    link.Key.Dispose();
+                DisposeAll();
             }
         }
 
@@ -114,13 +116,13 @@ namespace Bondtun
                 {
                     foreach (var link in m_netLinks)
                     {
-                        Byte[] buffer = new Byte[256];
-                        Int32 readBytes = await m_serveStream.ReadAsync(buffer);
+                        Byte[] buffer = new Byte[1500 / m_maxConns];
+                        Int32 readBytes = await m_serveStream.ReadAsync(buffer, 4, buffer.Length - 4);
 
                         if (readBytes > 0)
                         {
-                            await link.Value.WriteAsync(BitConverter.GetBytes(readBytes));
-                            await link.Value.WriteAsync(buffer, 0, (Int32)readBytes);
+                            Array.Copy(BitConverter.GetBytes(readBytes), buffer, 4);
+                            await link.Value.WriteAsync(buffer, 0, (Int32)readBytes + 4);
                         }
                         else
                             throw new SocketException();

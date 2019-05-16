@@ -72,8 +72,7 @@ namespace Bondtun
             }
             catch (Exception)
             {
-                foreach (var link in m_netLinks)
-                    link.Key.Dispose();
+                DisposeAll();
             }
         }
 
@@ -85,13 +84,13 @@ namespace Bondtun
                 {
                     foreach (var link in m_netLinks)
                     {
-                        Byte[] buffer = new Byte[256];
-                        Int32 readBytes = await m_remoteStream.ReadAsync(buffer);
+                        Byte[] buffer = new Byte[1500 / m_maxConns];
+                        Int32 readBytes = await m_remoteStream.ReadAsync(buffer, 4, buffer.Length - 4);
 
                         if (readBytes > 0)
                         {
-                            await link.Value.WriteAsync(BitConverter.GetBytes(readBytes));
-                            await link.Value.WriteAsync(buffer, 0, (Int32)readBytes);
+                            Array.Copy(BitConverter.GetBytes(readBytes), buffer, 4);
+                            await link.Value.WriteAsync(buffer, 0, (Int32)readBytes + 4);
                         }
                         else
                             throw new SocketException();
