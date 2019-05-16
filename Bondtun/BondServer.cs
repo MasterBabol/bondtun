@@ -124,14 +124,12 @@ namespace Bondtun
                     for (int i = 0; i < m_maxConns; i++)
                     {
                         Byte[] buffer;
+                        var link = schedulingTargets.Dequeue();
 
                         if (m_remoteInboundQueue.TryTake(out buffer))
-                        {
-                            var link = schedulingTargets.Dequeue();
                             writeTasks.Add(link.Value.WriteAsync(buffer, 0, buffer.Length));
-                        }
                         else
-                            break;
+                            await Task.Yield();
                     }
 
                     await Task.WhenAll(writeTasks.ToArray());
