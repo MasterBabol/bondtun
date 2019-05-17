@@ -66,8 +66,8 @@ namespace Bondtun
                 await m_remoteClient.ConnectAsync(m_remoteEP.Address, m_remoteEP.Port);
                 m_remoteStream = m_remoteClient.GetStream();
 
-                var difr = Task.Run(async () => { await DispatchInboundFromRemote(); });
-                var dotr = Task.Run(async () => { await DispatchOutboundToRemote(); });
+                var difr = Task.Run(() => { DispatchInboundFromRemote(); });
+                var dotr = Task.Run(() => { DispatchOutboundToRemote(); });
                 await Task.WhenAll(difr, dotr);
             }
             catch (Exception)
@@ -76,7 +76,7 @@ namespace Bondtun
             }
         }
 
-        private async Task DispatchInboundFromRemote()
+        private void DispatchInboundFromRemote()
         {
             try
             {
@@ -85,12 +85,12 @@ namespace Bondtun
                     foreach (var link in m_netLinks)
                     {
                         Byte[] buffer = new Byte[1500 / m_maxConns];
-                        Int32 readBytes = await m_remoteStream.ReadAsync(buffer, 4, buffer.Length - 4);
+                        Int32 readBytes = m_remoteStream.Read(buffer, 4, buffer.Length - 4);
 
                         if (readBytes > 0)
                         {
                             Array.Copy(BitConverter.GetBytes(readBytes), buffer, 4);
-                            await link.Value.WriteAsync(buffer, 0, (Int32)readBytes + 4);
+                            link.Value.Write(buffer, 0, (Int32)readBytes + 4);
                         }
                         else
                             throw new SocketException();
@@ -103,7 +103,7 @@ namespace Bondtun
             }
         }
 
-        private async Task DispatchOutboundToRemote()
+        private void DispatchOutboundToRemote()
         {
             try
             {
@@ -111,8 +111,8 @@ namespace Bondtun
                 {
                     foreach (var link in m_netLinks)
                     {
-                        Byte[] payload = await ReceiveOne(link.Value);
-                        await m_remoteStream.WriteAsync(payload);
+                        Byte[] payload = ReceiveOne(link.Value);
+                        m_remoteStream.Write(payload);
                     }
                 }
             }
@@ -130,14 +130,14 @@ namespace Bondtun
             m_remoteStream.Dispose();
         }
 
-        private async Task ReceiveExact(Stream stream, Byte[] buffer)
+        private void ReceiveExact(Stream stream, Byte[] buffer)
         {
             Int32 offset = 0;
             Int32 readBytes = 0;
 
             while (buffer.Length - offset > 0)
             {
-                readBytes = await stream.ReadAsync(buffer, offset, buffer.Length - offset);
+                readBytes = stream.Read(buffer, offset, buffer.Length - offset);
                 if (readBytes > 0)
                     offset += readBytes;
                 else
@@ -145,17 +145,17 @@ namespace Bondtun
             }
         }
 
-        private async Task<Byte[]> ReceiveOne(Stream stream)
+        private Byte[] ReceiveOne(Stream stream)
         {
             Byte[] lengthRaw = new Byte[4];
 
-            await ReceiveExact(stream, lengthRaw);
+            ReceiveExact(stream, lengthRaw);
             UInt32 len = BitConverter.ToUInt32(lengthRaw);
             if (len > 1024*1024*16)
                 throw new OutOfMemoryException();
 
             Byte[] payload = new Byte[len];
-            await ReceiveExact(stream, payload);
+            ReceiveExact(stream, payload);
 
             return payload;
         }

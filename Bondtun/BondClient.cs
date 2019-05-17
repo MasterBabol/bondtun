@@ -71,7 +71,7 @@ namespace Bondtun
                 foreach (var inf in m_linkInf)
                 {
                     TcpClient newClient = new TcpClient(inf.Key);
-		    Console.WriteLine("A link from " + inf.Key + " is connecting to " + inf.Value);
+                    Console.WriteLine("A link from " + inf.Key + " is connecting to " + inf.Value);
                     await newClient.ConnectAsync(inf.Value.Address, inf.Value.Port);
                     newClient.SendBufferSize = m_bufferSize;
                     newClient.ReceiveBufferSize = m_bufferSize;
@@ -79,8 +79,8 @@ namespace Bondtun
                     m_netLinks.Add(newClient, newClient.GetStream());
                 }
 
-                var difl = Task.Run(async () => { await DispatchInboundFromLink(); });
-                var dotl = Task.Run(async () => { await DispatchOutboundToLink(); });
+                var difl = Task.Run(() => { DispatchInboundFromLink(); });
+                var dotl = Task.Run(() => { DispatchOutboundToLink(); });
                 await Task.WhenAll(difl, dotl);
             }
             catch (Exception)
@@ -97,8 +97,8 @@ namespace Bondtun
                 {
                     foreach (var link in m_netLinks)
                     {
-                        Byte[] payload = await ReceiveOne(link.Value);
-                        await m_serveStream.WriteAsync(payload);
+                        Byte[] payload = ReceiveOne(link.Value);
+                        m_serveStream.Write(payload);
                     }
                 }
             }
@@ -108,7 +108,7 @@ namespace Bondtun
             }
         }
 
-        private async Task DispatchOutboundToLink()
+        private void DispatchOutboundToLink()
         {
             try
             {
@@ -117,12 +117,12 @@ namespace Bondtun
                     foreach (var link in m_netLinks)
                     {
                         Byte[] buffer = new Byte[1500 / m_maxConns];
-                        Int32 readBytes = await m_serveStream.ReadAsync(buffer, 4, buffer.Length - 4);
+                        Int32 readBytes = m_serveStream.Read(buffer, 4, buffer.Length - 4);
 
                         if (readBytes > 0)
                         {
                             Array.Copy(BitConverter.GetBytes(readBytes), buffer, 4);
-                            await link.Value.WriteAsync(buffer, 0, (Int32)readBytes + 4);
+                            link.Value.Write(buffer, 0, (Int32)readBytes + 4);
                         }
                         else
                             throw new SocketException();
@@ -143,14 +143,14 @@ namespace Bondtun
             m_serveStream.Dispose();
         }
 
-        private async Task ReceiveExact(Stream stream, Byte[] buffer)
+        private void ReceiveExact(Stream stream, Byte[] buffer)
         {
             Int32 offset = 0;
             Int32 readBytes = 0;
 
             while (buffer.Length - offset > 0)
             {
-                readBytes = await stream.ReadAsync(buffer, offset, buffer.Length - offset);
+                readBytes = stream.Read(buffer, offset, buffer.Length - offset);
                 if (readBytes > 0)
                     offset += readBytes;
                 else
@@ -158,17 +158,17 @@ namespace Bondtun
             }
         }
 
-        private async Task<Byte[]> ReceiveOne(Stream stream)
+        private Byte[] ReceiveOne(Stream stream)
         {
             Byte[] lengthRaw = new Byte[4];
 
-            await ReceiveExact(stream, lengthRaw);
+            ReceiveExact(stream, lengthRaw);
             UInt32 len = BitConverter.ToUInt32(lengthRaw);
             if (len > 1024*1024*16)
                 throw new OutOfMemoryException();
 
             Byte[] payload = new Byte[len];
-            await ReceiveExact(stream, payload);
+            ReceiveExact(stream, payload);
 
             return payload;
         }
