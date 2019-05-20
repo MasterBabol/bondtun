@@ -83,13 +83,14 @@ namespace Bondtun
                 var dotl = Task.Run(() => { DispatchOutboundToLink(); });
                 await Task.WhenAll(difl, dotl);
             }
-            catch (Exception)
+            catch (Exception e)
             {
                 DisposeAll();
+                Console.WriteLine(e);
             }
         }
 
-        private async Task DispatchInboundFromLink()
+        private void DispatchInboundFromLink()
         {
             try
             {
@@ -102,9 +103,10 @@ namespace Bondtun
                     }
                 }
             }
-            catch (Exception)
+            catch (Exception e)
             {
                 DisposeAll();
+                Console.WriteLine(e);
             }
         }
 
@@ -125,13 +127,14 @@ namespace Bondtun
                             link.Value.Write(buffer, 0, (Int32)readBytes + 4);
                         }
                         else
-                            throw new SocketException();
+                            throw new IOException("readBytes has returned " + readBytes);
                     }
                 }
             }
-            catch (Exception)
+            catch (Exception e)
             {
                 DisposeAll();
+                Console.WriteLine(e);
             }
         }
 
@@ -154,7 +157,7 @@ namespace Bondtun
                 if (readBytes > 0)
                     offset += readBytes;
                 else
-                    throw new IOException();
+                    throw new IOException("readBytes has returned " + readBytes);
             }
         }
 

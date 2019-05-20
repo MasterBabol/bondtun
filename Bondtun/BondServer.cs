@@ -70,9 +70,10 @@ namespace Bondtun
                 var dotr = Task.Run(() => { DispatchOutboundToRemote(); });
                 await Task.WhenAll(difr, dotr);
             }
-            catch (Exception)
+            catch (Exception e)
             {
                 DisposeAll();
+                Console.WriteLine(e);
             }
         }
 
@@ -93,13 +94,14 @@ namespace Bondtun
                             link.Value.Write(buffer, 0, (Int32)readBytes + 4);
                         }
                         else
-                            throw new SocketException();
+                            throw new IOException("readBytes has returned " + readBytes);
                     }
                 }
             }
-            catch (Exception)
+            catch (Exception e)
             {
                 DisposeAll();
+                Console.WriteLine(e);
             }
         }
 
@@ -116,9 +118,10 @@ namespace Bondtun
                     }
                 }
             }
-            catch (Exception)
+            catch (Exception e)
             {
                 DisposeAll();
+                Console.WriteLine(e);
             }
         }
 
@@ -141,7 +144,7 @@ namespace Bondtun
                 if (readBytes > 0)
                     offset += readBytes;
                 else
-                    throw new IOException();
+                    throw new IOException("readBytes has returned " + readBytes);
             }
         }
 
