@@ -51,6 +51,7 @@ namespace Bondtun
         {
             try
             {
+                Console.WriteLine("Server is now listening");
                 for (int i = 0; i < m_maxConns; i++)
                 {
                     TcpClient newClient;

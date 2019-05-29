@@ -64,7 +64,7 @@ namespace Bondtun
             try
             {
                 m_serveClient = await m_listener.AcceptTcpClientAsync();
-                Console.WriteLine("A link from the local bind is connected");
+                Console.WriteLine("A link from the local bind from " + m_serveClient.Client.RemoteEndPoint.ToString() + " is connected");
                 m_serveClient.SendBufferSize = m_bufferSize;
                 m_serveClient.ReceiveBufferSize = m_bufferSize;
                 m_serveStream = m_serveClient.GetStream();
@@ -74,11 +74,13 @@ namespace Bondtun
                     TcpClient newClient = new TcpClient(inf.Key);
                     Console.WriteLine("A link from " + inf.Key + " is connecting to " + inf.Value);
                     await newClient.ConnectAsync(inf.Value.Address, inf.Value.Port);
+                    Console.WriteLine("A link from " + inf.Key + " is connected ");
                     newClient.SendBufferSize = m_bufferSize;
                     newClient.ReceiveBufferSize = m_bufferSize;
 
                     m_netLinks.Add(newClient, newClient.GetStream());
                 }
+                Console.WriteLine("All links are now ready");
 
                 var difl = Task.Run(() => { DispatchInboundFromLink(); });
                 var dotl = Task.Run(() => { DispatchOutboundToLink(); });
