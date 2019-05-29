@@ -64,6 +64,7 @@ namespace Bondtun
             try
             {
                 m_serveClient = await m_listener.AcceptTcpClientAsync();
+                Console.WriteLine("A link from the local bind is connected");
                 m_serveClient.SendBufferSize = m_bufferSize;
                 m_serveClient.ReceiveBufferSize = m_bufferSize;
                 m_serveStream = m_serveClient.GetStream();

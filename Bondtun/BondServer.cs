@@ -55,6 +55,7 @@ namespace Bondtun
                 {
                     TcpClient newClient;
                     newClient = await m_listener.AcceptTcpClientAsync();
+                    Console.WriteLine("A link from " + newClient.Client.RemoteEndPoint.ToString() + " is connected");
                     newClient.SendBufferSize = m_bufferSize;
                     newClient.ReceiveBufferSize = m_bufferSize;
                     m_netLinks.Add(newClient, newClient.GetStream());
@@ -64,6 +65,7 @@ namespace Bondtun
                 m_remoteClient.SendBufferSize = m_bufferSize;
                 m_remoteClient.ReceiveBufferSize = m_bufferSize;
                 await m_remoteClient.ConnectAsync(m_remoteEP.Address, m_remoteEP.Port);
+                Console.WriteLine("A link to the remote bind is connected");
                 m_remoteStream = m_remoteClient.GetStream();
 
                 var difr = Task.Run(() => { DispatchInboundFromRemote(); });
